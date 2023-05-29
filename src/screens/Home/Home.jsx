@@ -1,0 +1,202 @@
+import { message } from "antd";
+import axios from "axios";
+import React, { useState } from "react";
+import { useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
+import { baseURL } from "../../API/api";
+import { homeTodo } from "../../store/reducers/Home/home.actions";
+import "./Home.scss";
+const Home = () => {
+  const { todos } = useSelector((store) => store.todos);
+  const { token } = useSelector((store) => store.auth);
+
+  const dispatch = useDispatch();
+  const [taskInput, setTaskInput] = useState("");
+  const [update, setUpdate] = useState(false);
+  const [id, setId] = useState("");
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    dispatch(homeTodo());
+  }, []);
+  console.log(todos);
+
+  useEffect((e) => {
+    if(!token) {
+      navigate("/login", { replace: true })
+    }
+  },[token])
+
+
+
+  async function createTask() {
+    const dataPost = {
+      task: taskInput,
+      category_id: 3,
+    };
+
+    await axios
+      .post(`${baseURL}/tasks`, dataPost, {
+        headers: {
+          "Content-type": "Application/json",
+          Authorization: "Bearer " + localStorage.getItem("token"),
+        },
+      })
+      .then((res) => {
+        message.success('Successful Created Task!')
+        dispatch(homeTodo());
+        setTaskInput("");
+      })
+      .catch((err) => {
+        console.log(err);
+      })
+      .finally(() => {
+        console.log(dataPost);
+      });
+  }
+  // Delete Function start
+  function deleteTask(id) {
+    axios
+      .delete(`${baseURL}/tasks/${id}`, {
+        headers: {
+          Authorization: "Bearer " + localStorage.getItem("token"),
+        },
+      })
+      .then((res) => {
+        message.success('Task is Successful Deleted!')
+        dispatch(homeTodo());
+      });
+  }
+  // Delete Function end
+
+  // Select Function start!
+  function selectTask(item) {
+    setId(item.id);
+    setUpdate(true);
+    const currentTask = todos.find((x) => x.id === id);
+    setTaskInput(currentTask.task);
+  }
+  // Select Function end!
+
+  async function UpdateTask() {
+    const data = {
+      id: id,
+      task: taskInput,
+      category_id: 3,
+    };
+
+    await axios
+      .patch(`${baseURL}/tasks/${id}}`, data, {
+        headers: {
+          Authorization: "Bearer " + localStorage.getItem("token"),
+        },
+      })
+      .then((res) => {
+        dispatch(homeTodo());
+        setUpdate(false);
+      })
+      .catch((err) => {
+        console.log(err);
+      })
+      .finally(() => {
+        console.log(id);
+        console.log(data);
+        setTaskInput("");
+      });
+  }
+
+  function submit(e) {
+    e.preventDefault();
+    if (update === true) {
+      UpdateTask();
+    } else if (update === false) {
+      createTask();
+    }
+  }
+
+
+  async function isDoneFunc(id) {
+    const data = todos.find(item => item.id === id)
+
+    await axios.put(`${baseURL}/tasks/${id}`,{is_done: !data.is_done}, {
+      headers:{
+        "Authorization" : "Bearer " + localStorage.getItem("token")
+      }
+    })
+    .then(res => {
+      message.success('Successful is Done!')
+      dispatch(homeTodo())
+    })
+    .catch(err => {
+      console.log(err);
+    })
+    .finally(() => {
+      console.log(id);
+    })
+  }
+
+  return (
+    <div className="flex h-[90vh] flex-col gap-4 rounded-md p-10 shadow-md justify-center items-center bg-indigo-600">
+      <form className="w-full flex bg-white rounded-md" onSubmit={submit}>
+        <input
+          className="w-[90%] p-4 outline-none rounded-md"
+          value={taskInput}
+          onChange={(e) => setTaskInput(e.target.value)}
+          type="text"
+          placeholder="Add task"
+        />
+        <button
+          className={`w-[20%] text-center outline-none cursor-pointer ${
+            update === false
+              ? "btn-grad bg-blue-500"
+              : update === true
+              ? "btn-update bg-green-500"
+              : ""
+          } text-white cursor-pointer rounded-lg`}
+        >
+          {update === true ? "Update" : update === false ? "Create" : ""}
+        </button>
+
+      </form>
+      <div>
+        <h1 className="font-bold text-white">
+          Created tasks <span className="bg-white-500 text-white p-1 text-[12px] rounded-[50%]">{todos.length}</span> 
+        </h1>
+      </div>
+      <ul className="h-[450px] overflow-y-auto w-full">
+        {todos.map((item) => (
+          <li
+            className="mb-2 flex justify-around items-center mr-6 bg-white rounded-lg p-4 cursor-pointer"
+            key={item.id}
+          >
+            <span className="flex gap-4 items-center">
+              <span onClick={() => isDoneFunc(item.id)}>
+              <i className={`text-xl ${item.is_done === false ? "bx bx-checkbox text-blue-500" : item.is_done === true ? "bx bxs-checkbox-checked text-blue-500" : ""}`}></i>
+              </span>
+              <span className={`text-xl ${item.is_done === true ? "line-through" : item.is_done === false ? "" : ""}`}>
+                {item.task}
+              </span>
+              </span>
+            <span className="flex gap-2 items-center">
+              <button
+                className="bg-red-500 rounded-md p-2 text-white"
+                onClick={() => deleteTask(item.id)}
+              >
+                <i class="bx bx-trash"></i>
+              </button>
+              <button
+                className="bg-blue-500 rounded-md p-2 text-white"
+                onClick={() => selectTask(item)}
+              >
+                <i class="bx bxs-edit"></i>
+              </button>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+export default Home;
